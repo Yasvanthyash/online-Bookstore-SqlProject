@@ -1,0 +1,256 @@
+```sql
+/* =========================================
+   ONLINE BOOKSTORE DATABASE PROJECT
+   ========================================= */
+
+/* =========================================
+   1. CREATE TABLES
+   ========================================= */
+
+CREATE TABLE Authors (
+    author_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    bio TEXT
+);
+
+CREATE TABLE Genres (
+    genre_id INT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE Books (
+    book_id INT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    author_id INT,
+    price DECIMAL(10,2),
+    publication_date DATE,
+    genre_id INT,
+    FOREIGN KEY (author_id) REFERENCES Authors(author_id),
+    FOREIGN KEY (genre_id) REFERENCES Genres(genre_id)
+);
+
+CREATE TABLE Customers (
+    customer_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100),
+    phone VARCHAR(20)
+);
+
+CREATE TABLE Orders (
+    order_id INT PRIMARY KEY,
+    customer_id INT,
+    order_date DATE,
+    total DECIMAL(10,2),
+    FOREIGN KEY (customer_id)
+        REFERENCES Customers(customer_id)
+);
+
+CREATE TABLE Order_Details (
+    order_id INT,
+    book_id INT,
+    quantity INT,
+    PRIMARY KEY (order_id, book_id),
+    FOREIGN KEY (order_id)
+        REFERENCES Orders(order_id),
+    FOREIGN KEY (book_id)
+        REFERENCES Books(book_id)
+);
+
+/* =========================================
+   2. INSERT SAMPLE DATA
+   ========================================= */
+
+INSERT INTO Authors VALUES
+(1,'J.K. Rowling','Author of Harry Potter'),
+(2,'George Orwell','Author of 1984'),
+(3,'Dan Brown','Thriller novelist'),
+(4,'Paulo Coelho','Author of The Alchemist'),
+(5,'Chetan Bhagat','Indian fiction writer');
+
+INSERT INTO Genres VALUES
+(1,'Fantasy'),
+(2,'Dystopian'),
+(3,'Thriller'),
+(4,'Fiction'),
+(5,'Romance');
+
+INSERT INTO Books VALUES
+(1,'Harry Potter',1,500.00,'2001-06-26',1),
+(2,'1984',2,350.00,'1949-06-08',2),
+(3,'The Da Vinci Code',3,450.00,'2003-03-18',3),
+(4,'The Alchemist',4,300.00,'1988-01-01',4),
+(5,'2 States',5,250.00,'2009-10-08',5);
+
+INSERT INTO Customers VALUES
+(1,'John','john@gmail.com','9876543210'),
+(2,'Alice','alice@gmail.com','9876543211'),
+(3,'Bob','bob@gmail.com','9876543212'),
+(4,'David','david@gmail.com','9876543213'),
+(5,'Emma','emma@gmail.com','9876543214');
+
+INSERT INTO Orders VALUES
+(101,1,'2025-01-01',850.00),
+(102,2,'2025-01-05',500.00),
+(103,3,'2025-01-10',300.00),
+(104,4,'2025-01-15',800.00),
+(105,5,'2025-01-20',250.00);
+
+INSERT INTO Order_Details VALUES
+(101,1,1),
+(101,2,1),
+(102,1,1),
+(103,4,1),
+(104,2,1),
+(104,3,1),
+(105,5,1);
+
+/* =========================================
+   3. CREATE VIEWS
+   ========================================= */
+
+/* Books by Author */
+CREATE VIEW Books_By_Author AS
+SELECT
+    a.author_id,
+    a.name AS author_name,
+    b.book_id,
+    b.title
+FROM Authors a
+JOIN Books b
+ON a.author_id = b.author_id;
+
+/* Total Sales Per Book */
+CREATE VIEW Book_Sales AS
+SELECT
+    b.book_id,
+    b.title,
+    SUM(od.quantity) AS total_quantity_sold,
+    SUM(od.quantity * b.price) AS total_sales_amount
+FROM Books b
+JOIN Order_Details od
+ON b.book_id = od.book_id
+GROUP BY b.book_id, b.title;
+
+/* Customer Order History */
+CREATE VIEW Customer_Order_History AS
+SELECT
+    c.customer_id,
+    c.name,
+    o.order_id,
+    o.order_date,
+    o.total
+FROM Customers c
+JOIN Orders o
+ON c.customer_id = o.customer_id;
+
+/* =========================================
+   4. QUERIES
+   ========================================= */
+
+/* Retrieve all books with authors and genres */
+
+SELECT
+    b.book_id,
+    b.title,
+    a.name AS author_name,
+    g.name AS genre_name,
+    b.price,
+    b.publication_date
+FROM Books b
+JOIN Authors a
+ON b.author_id = a.author_id
+JOIN Genres g
+ON b.genre_id = g.genre_id;
+
+/* Top 5 Best-Selling Books */
+
+SELECT
+    b.book_id,
+    b.title,
+    SUM(od.quantity) AS total_sold
+FROM Books b
+JOIN Order_Details od
+ON b.book_id = od.book_id
+GROUP BY b.book_id, b.title
+ORDER BY total_sold DESC
+LIMIT 5;
+
+/* Orders with Details and Customer Information */
+
+SELECT
+    o.order_id,
+    c.name AS customer_name,
+    c.email,
+    o.order_date,
+    b.title,
+    od.quantity,
+    b.price,
+    (od.quantity * b.price) AS subtotal
+FROM Orders o
+JOIN Customers c
+ON o.customer_id = c.customer_id
+JOIN Order_Details od
+ON o.order_id = od.order_id
+JOIN Books b
+ON od.book_id = b.book_id;
+
+/* =========================================
+   5. INDEXES
+   ========================================= */
+
+CREATE INDEX idx_books_author
+ON Books(author_id);
+
+CREATE INDEX idx_books_genre
+ON Books(genre_id);
+
+CREATE INDEX idx_orders_customer
+ON Orders(customer_id);
+
+CREATE INDEX idx_orderdetails_order
+ON Order_Details(order_id);
+
+CREATE INDEX idx_orderdetails_book
+ON Order_Details(book_id);
+
+/* =========================================
+   6. OPTIMIZATION EXAMPLES
+   ========================================= */
+
+/* Less Efficient */
+
+SELECT *
+FROM Books
+WHERE author_id = 1;
+
+/* Better with Index */
+
+SELECT
+    book_id,
+    title,
+    price
+FROM Books
+WHERE author_id = 1;
+
+/* Find Customers Who Never Ordered */
+
+SELECT
+    c.customer_id,
+    c.name
+FROM Customers c
+LEFT JOIN Orders o
+ON c.customer_id = o.customer_id
+WHERE o.order_id IS NULL;
+
+/* Highest Selling Book */
+
+SELECT
+    b.title,
+    SUM(od.quantity) AS total_sales
+FROM Books b
+JOIN Order_Details od
+ON b.book_id = od.book_id
+GROUP BY b.book_id, b.title
+ORDER BY total_sales DESC
+LIMIT 1;
+```
